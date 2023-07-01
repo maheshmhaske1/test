@@ -1,45 +1,56 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const puppeteer = require('puppeteer');
-const path = require('path');
+
 
 /* GET home page. */
 router.get('/', async function (req, res, next) {
-  try {
-    // Create a browser instance
-    const browser = await puppeteer.launch();
+  const PDFDocument = require('pdfkit');
+const fs = require('fs');
 
-    // Create a new page
-    const page = await browser.newPage();
+// Create a document
+const doc = new PDFDocument();
 
-    // Get HTML content from HTML file
-    const htmlPath = path.join(__dirname, 'index.html');
-    const html = fs.readFileSync(htmlPath, 'utf-8');
+// Pipe its output somewhere, like to a file or HTTP response
+// See below for browser usage
+doc.pipe(fs.createWriteStream('output.pdf'));
 
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+// Embed a font, set the font size, and render some text
+doc
+  .fontSize(25)
+  .text('Some text with an embedded font!', 100, 100)
 
-    // To reflect CSS used for screens instead of print
-    await page.emulateMediaType('screen');
+// Add another page
+doc
+  .addPage()
+  .fontSize(25)
+  .text('Here is some vector graphics...', 100, 100);
 
-    // Generate the PDF
-    const pdf = await page.pdf({
-      path: 'result.pdf',
-      margin: { top: '100px', right: '50px', bottom: '100px', left: '50px' },
-      printBackground: true,
-      format: 'A4',
-    });
+// Draw a triangle
+doc
+  .save()
+  .moveTo(100, 150)
+  .lineTo(100, 250)
+  .lineTo(200, 250)
+  .fill('#FF3300');
 
-    // Close the browser instance
-    await browser.close();
+// Apply some transforms and render an SVG path with the 'even-odd' fill rule
+doc
+  .scale(0.6)
+  .translate(470, -380)
+  .path('M 250,75 L 323,301 131,161 369,161 177,301 z')
+  .fill('red', 'even-odd')
+  .restore();
 
-    // Send the PDF as a response to the API request
-    res.contentType("application/pdf");
-    res.send(pdf);
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
+// Add some text with annotations
+doc
+  .addPage()
+  .fillColor('blue')
+  .text('Here is a link!', 100, 100)
+  .underline(100, 100, 160, 27, { color: '#0000FF' })
+  .link(100, 100, 160, 27, 'http://google.com/');
+
+// Finalize PDF file
+doc.end()
 });
 
 module.exports = router;
